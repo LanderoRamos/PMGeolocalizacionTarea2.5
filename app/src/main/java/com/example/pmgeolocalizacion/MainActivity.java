@@ -3,6 +3,7 @@ package com.example.pmgeolocalizacion;
 import static android.content.ContentValues.TAG;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -10,11 +11,17 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.library.BuildConfig;
@@ -24,9 +31,11 @@ import org.osmdroid.views.overlay.Marker;
 
 public class MainActivity extends AppCompatActivity {
 
+    private FusedLocationProviderClient fusedLocationClient;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
 
-    double latitude = 15.77478;
-    double longitude = -86.79779;
+    double latitude ;
+    double longitude;
 
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
     private MapView map = null;
@@ -40,21 +49,22 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        getLocation();
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            getCurrentLocation();
+        }
+
 
         map = findViewById(R.id.map);
         map.setBuiltInZoomControls(true);
         map.setMultiTouchControls(true);
 
-        GeoPoint startPoint = new GeoPoint(latitude, longitude); // Coordinates for the Eiffel Tower
-        map.getController().setZoom(15.0);
-        map.getController().setCenter(startPoint);
 
-        Marker startMarker = new Marker(map);
-        startMarker.setPosition(startPoint);
-        startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-        startMarker.setTitle("Eiffel Tower");
-        map.getOverlays().add(startMarker);
 
         requestPermissionsIfNecessary(new String[] {
                 Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -62,6 +72,42 @@ public class MainActivity extends AppCompatActivity {
                 Manifest.permission.ACCESS_COARSE_LOCATION
         });
 
+        //getCurrentLocation();
+
+    }
+
+    private void mapa(){
+
+    }
+
+    @SuppressLint("MissingPermission")
+    private void getCurrentLocation() {
+        fusedLocationClient.getLastLocation()
+                .addOnCompleteListener(this, new OnCompleteListener<Location>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Location> task) {
+                        if (task.isSuccessful() && task.getResult() != null) {
+                            Location location = task.getResult();
+                            latitude = location.getLatitude();
+                            longitude = location.getLongitude();
+                            String message = "Lat: " + latitude + " Lon: " + longitude;
+                            //Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+
+                            GeoPoint startPoint = new GeoPoint(latitude, longitude); // Coordinates for the Eiffel Tower
+                            map.getController().setZoom(15.0);
+                            map.getController().setCenter(startPoint);
+
+                            Marker startMarker = new Marker(map);
+                            startMarker.setPosition(startPoint);
+                            startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+                            startMarker.setTitle("Eiffel Tower");
+                            map.getOverlays().add(startMarker);
+
+                        } else {
+                            Toast.makeText(MainActivity.this, "Unable to get location", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
     }
 
     private void requestPermissionsIfNecessary(String[] permissions) {
@@ -72,35 +118,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void getLocation() {
-        try {
-            LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-            LocationListener locationListener = new LocationListener() {
-                @Override
-                public void onLocationChanged(@NonNull Location location) {
-                    latitude = location.getLatitude();
-                    longitude = location.getLongitude();
-                    Log.d(TAG, "Latitud: " + latitude + ", Longitud: " + longitude);
-
-                    // Aquí puedes hacer algo con las coordenadas obtenidas
-                }
-
-                @Override
-                public void onProviderEnabled(@NonNull String provider) {}
-
-                @Override
-                public void onProviderDisabled(@NonNull String provider) {}
-
-                @Override
-                public void onStatusChanged(String provider, int status, Bundle extras) {}
-            };
-
-            // Registra el LocationListener con el LocationManager
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-
-        } catch (SecurityException e) {
-            Log.e(TAG, "Error al obtener la ubicación: " + e.getMessage());
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                getCurrentLocation();
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show();
+            }
         }
     }
+
+
 
 }
